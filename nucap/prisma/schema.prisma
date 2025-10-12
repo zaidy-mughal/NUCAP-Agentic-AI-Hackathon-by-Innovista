@@ -1,0 +1,221 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id            String          @id @default(cuid())
+  clerkId       String          @unique
+  email         String          @unique
+  name          String?
+  phoneNumber   String?
+  createdAt     DateTime        @default(now())
+  lastLogin     DateTime?
+  studentProfile StudentProfile?
+  
+  @@map("users")
+}
+
+// Student Profile Model
+model StudentProfile {
+  id                    String          @id @default(cuid())
+  userId                String          @unique
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Matric Marks
+  matricTotalMarks      Int
+  matricObtainedMarks   Int
+  matricPercentage      Float
+  matricBoard           String
+  matricYear            Int
+  
+  // Inter Marks
+  interTotalMarks       Int
+  interObtainedMarks    Int
+  interPercentage       Float
+  interBoard            String
+  interGroup            String          // Pre-Med/Pre-Eng/Commerce/Arts
+  interYear             Int
+  
+  // Test Scores (Optional)
+  nustTestScore         Int?
+  fastTestScore         Int?
+  ntsTestScore          Int?
+  
+  // Preferences
+  preferredCities       String[]
+  preferredFields       String[]
+  budgetRange           String?
+  
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  matches               StudentMatch[]
+  
+  @@map("student_profiles")
+}
+
+// University Model
+model University {
+  id                String              @id @default(cuid())
+  name              String
+  shortName         String              @unique
+  location          String
+  website           String
+  contactEmail      String?
+  contactPhone      String?
+  testRequired      String              // NUST/FAST/NTS/None
+  isActive          Boolean             @default(true)
+  lastScraped       DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  departments       Department[]
+  meritLists        MeritList[]
+  timelines         AdmissionTimeline[]
+  updates           UniversityUpdate[]
+  matches           StudentMatch[]
+  scrapingLogs      ScrapingLog[]
+  
+  @@map("universities")
+}
+
+// Department Model
+model Department {
+  id            String        @id @default(cuid())
+  universityId  String
+  university    University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  name          String
+  degree        String        // BS/BE/BBA etc.
+  duration      String
+  seats         Int?
+  category      String        // Engineering/CS/Medical/Business
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  meritLists    MeritList[]
+  matches       StudentMatch[]
+  
+  @@map("departments")
+}
+
+// Merit List Model
+model MeritList {
+  id                      String      @id @default(cuid())
+  universityId            String
+  university              University  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departmentId            String
+  department              Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  
+  year                    Int
+  admissionCycle          String      // Fall/Spring
+  meritType               String      // 1st/2nd/3rd/Final
+  
+  // Merit Details
+  closingMerit            Float
+  aggregatePercentage     Float?
+  matricPercentage        Float?
+  interPercentage         Float?
+  testScore               Float?
+  
+  publishedDate           DateTime?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+  
+  @@map("merit_lists")
+}
+
+// Admission Timeline Model
+model AdmissionTimeline {
+  id                    String      @id @default(cuid())
+  universityId          String
+  university            University  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  
+  year                  Int
+  cycle                 String      // Fall 2024/Spring 2025
+  
+  applicationStart      DateTime?
+  applicationDeadline   DateTime?
+  testDate              DateTime?
+  firstMeritList        DateTime?
+  secondMeritList       DateTime?
+  thirdMeritList        DateTime?
+  finalMeritList        DateTime?
+  
+  isActive              Boolean     @default(true)
+  scrapedData           Json?
+  lastUpdated           DateTime    @updatedAt
+  updatedBy             String      // system/admin
+  
+  createdAt             DateTime    @default(now())
+  
+  @@unique([universityId, year, cycle], name: "universityId_year_cycle")
+  @@map("admission_timelines")
+}
+
+// University Updates Model
+model UniversityUpdate {
+  id              String      @id @default(cuid())
+  universityId    String
+  university      University  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String      @db.Text
+  updateType      String      // deadline/merit/general
+  priority        String      // high/medium/low
+  sourceUrl       String?
+  publishedDate   DateTime?
+  isManual        Boolean     @default(false)
+  createdBy       String?
+  
+  createdAt       DateTime    @default(now())
+  
+  @@map("university_updates")
+}
+
+// Student Match Model
+model StudentMatch {
+  id                String          @id @default(cuid())
+  studentProfileId  String
+  studentProfile    StudentProfile  @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  universityId      String
+  university        University      @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departmentId      String
+  department        Department      @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  
+  matchScore        Float           // 0-100
+  estimatedMerit    Float
+  requiredMerit     Float
+  admissionChance   String          // High/Medium/Low
+  meritGap          Float
+  
+  calculatedAt      DateTime        @default(now())
+  
+  @@map("student_matches")
+}
+
+// Scraping Log Model
+model ScrapingLog {
+  id              String      @id @default(cuid())
+  universityId    String
+  university      University  @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  
+  status          String      // success/failed
+  dataType        String      // merit/deadline/announcement
+  recordsUpdated  Int         @default(0)
+  errorMessage    String?     @db.Text
+  executionTime   Int?        // in milliseconds
+  
+  scheduledAt     DateTime?
+  completedAt     DateTime    @default(now())
+  
+  @@map("scraping_logs")
+}

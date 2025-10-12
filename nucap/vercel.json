@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/scrape-universities",
+      "schedule": "0 */12 * * *"
+    }
+  ]
+}
+
