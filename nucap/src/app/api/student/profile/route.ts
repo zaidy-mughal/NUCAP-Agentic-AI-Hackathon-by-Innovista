@@ -85,7 +85,8 @@ export async function POST(request: NextRequest) {
 
     // Find or create user
     let user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      include: { studentProfile: true }
     });
 
     if (!user) {
@@ -98,8 +99,20 @@ export async function POST(request: NextRequest) {
           email: clerkUser.sessionClaims?.email as string || '',
           name: clerkUser.sessionClaims?.name as string || null,
           lastLogin: new Date()
-        }
+        },
+        include: { studentProfile: true }
       });
+    }
+
+    // Check if profile already exists
+    if (user.studentProfile) {
+      return NextResponse.json(
+        { 
+          error: 'Profile already exists. Use PUT to update.',
+          profileId: user.studentProfile.id 
+        },
+        { status: 409 } // Conflict
+      );
     }
 
     // Create student profile
@@ -128,9 +141,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle Prisma unique constraint errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      const prismaError = error as { code: string; meta?: any };
+      if (prismaError.code === 'P2002') {
+        return NextResponse.json(
+          { 
+            error: 'A profile already exists for this user.',
+            hint: 'Please use the update endpoint to modify your existing profile.'
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     console.error('Error creating profile:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

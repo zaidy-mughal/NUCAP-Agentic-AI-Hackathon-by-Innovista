@@ -72,6 +72,12 @@ export default function CreateProfilePage() {
       const data = await response.json();
 
       if (!response.ok) {
+        // If profile already exists (409 Conflict), redirect to dashboard
+        if (response.status === 409) {
+          console.log('Profile already exists, redirecting to dashboard...');
+          router.push('/dashboard');
+          return;
+        }
         throw new Error(data.error || 'Failed to create profile');
       }
 
