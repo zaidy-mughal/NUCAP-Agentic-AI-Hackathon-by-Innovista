@@ -72,7 +72,9 @@ export class NUSTScraper {
     const urls = {
       admissions: `${this.baseUrl}/admissions/undergraduates/dates-to-remember/`,
       meritLists: `${this.baseUrl}/admissions/undergraduates/merit-lists/`,
-      announcements: `${this.baseUrl}/admissions/undergraduates/`
+      announcements: `${this.baseUrl}/admissions/undergraduates/`,
+      ugAdmissions: 'https://ugadmissions.nust.edu.pk/',
+      pgAdmissions: 'https://pgadmission.nust.edu.pk/'
     };
 
     const data: Partial<NUSTData> = {
@@ -166,29 +168,32 @@ export class NUSTScraper {
   private extractDeadlines(text: string): NUSTData['deadlines'] {
     const deadlines: NUSTData['deadlines'] = {};
 
-    // Common date patterns
-    const dateRegex = /(\d{1,2})[\s\-\/]+(January|February|March|April|May|June|July|August|September|October|November|December)[\s\-\/]+(\d{4})/gi;
-
-    // Keywords for different deadlines
-    const patterns = {
-      applicationDeadline: /(?:last date|deadline|apply by|registration close|application close)[^\n]*?(\d{1,2}[\s\-\/]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+\d{4})/i,
-      testDate: /(?:test date|entry test|examination)[^\n]*?(\d{1,2}[\s\-\/]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+\d{4})/i,
-      applicationStart: /(?:application start|registration open|apply from)[^\n]*?(\d{1,2}[\s\-\/]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+\d{4})/i
-    };
-
-    // Try to extract each deadline
-    for (const [key, pattern] of Object.entries(patterns)) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        try {
-          const date = new Date(match[1]);
-          if (!isNaN(date.getTime())) {
-            deadlines[key as keyof typeof deadlines] = date;
-          }
-        } catch (e) {
-          console.warn(`Failed to parse date: ${match[1]}`);
+    // NUST-specific patterns based on actual table format
+    // Table format: "| Series — 1​ | 5 Oct — 21 Nov 2025 | 22 Nov 2025..."
+    
+    // Pattern 1: Extract dates from "5 Oct — 21 Nov 2025" format
+    const dateRangePattern = /(\d{1,2})\s+([A-Za-z]+)\s+[—–-]+\s+(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/gi;
+    const matches = Array.from(text.matchAll(dateRangePattern));
+    
+    if (matches.length > 0) {
+      // Use the first series end date as the primary deadline
+      const firstMatch = matches[0];
+      try {
+        const dateStr = `${firstMatch[4]} ${firstMatch[3]}, ${firstMatch[5]}`;
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          deadlines.applicationDeadline = date;
+          console.log(`  → Series 1 Registration ends: ${dateStr}`);
         }
-      }
+      } catch (e) {}
+    }
+
+    // Pattern 2: ACT/SAT last date "4 May — 20 July 2026"
+    const actSatPattern = /(\d{1,2})\s+([A-Za-z]+)\s+[—–-]+\s+(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/g;
+    const actMatches = Array.from(text.matchAll(actSatPattern));
+    if (actMatches.length > 0) {
+      const lastMatch = actMatches[actMatches.length - 1];
+      console.log(`  → ACT/SAT registration: ${lastMatch[2]} ${lastMatch[1]} - ${lastMatch[4]} ${lastMatch[3]}, ${lastMatch[5]}`);
     }
 
     return deadlines;

@@ -26,6 +26,9 @@ export interface COMSATSData {
 
 export class COMSATSScraper {
   private baseUrl = 'https://www.comsats.edu.pk';
+  private lahoreUrl = 'https://lahore.comsats.edu.pk';
+  private islamabadUrl = 'https://islamabad.comsats.edu.pk';
+  private admissionsUrl = 'https://admissions.comsats.edu.pk/';
   private jinaApiKey: string;
 
   constructor(jinaApiKey: string) {
@@ -42,11 +45,24 @@ export class COMSATSScraper {
     };
 
     try {
-      const admissionContent = await this.fetchWithJina(`${this.baseUrl}/Admissions.aspx`);
-      data.deadlines = this.extractDeadlines(admissionContent);
-      data.announcements = this.extractAnnouncements(admissionContent);
+      // Try Lahore campus schedule first (most detailed)
+      const lahoreContent = await this.fetchWithJina(`${this.lahoreUrl}/admissions/admissions-schedule.aspx`);
+      data.deadlines = this.extractDeadlines(lahoreContent);
+      data.announcements = this.extractAnnouncements(lahoreContent);
+      
+      console.log(`  ✓ Found ${Object.keys(data.deadlines).length} deadlines`);
+      console.log(`  ✓ Found ${data.announcements.length} announcements`);
     } catch (error) {
       console.error('COMSATS scraping error:', error);
+      
+      // Fallback to main site
+      try {
+        const mainContent = await this.fetchWithJina(`${this.baseUrl}/Admissions.aspx`);
+        data.deadlines = this.extractDeadlines(mainContent);
+        data.announcements = this.extractAnnouncements(mainContent);
+      } catch (fallbackError) {
+        console.error('COMSATS fallback also failed:', fallbackError);
+      }
     }
 
     return data;
@@ -66,21 +82,57 @@ export class COMSATSScraper {
   private extractDeadlines(text: string): COMSATSData['deadlines'] {
     const deadlines: COMSATSData['deadlines'] = {};
     
-    const patterns = {
-      applicationDeadline: /(?:last date|deadline)[^\n]*?(\d{1,2}[\s\-\/]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+\d{4})/i,
-      testDate: /(?:test date|NTS test)[^\n]*?(\d{1,2}[\s\-\/]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+\d{4})/i,
-    };
+    // COMSATS-specific patterns based on actual table format
+    // Format: "Admissions Open Sunday, June 01, 2025"
+    //         "Application Deadline Extended Monday, July 21, 2025"
+    
+    // Pattern 1: Admissions Open "Sunday, June 01, 2025"
+    const openPattern = /Admissions?\s+Open.*?([A-Za-z]+),?\s+([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/gi;
+    let match = openPattern.exec(text);
+    if (match) {
+      try {
+        const dateStr = `${match[2]} ${match[3]}, ${match[4]}`;
+        console.log(`  → Admissions open: ${dateStr}`);
+      } catch (e) {}
+    }
 
-    for (const [key, pattern] of Object.entries(patterns)) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        try {
-          const date = new Date(match[1]);
-          if (!isNaN(date.getTime())) {
-            deadlines[key as keyof typeof deadlines] = date;
-          }
-        } catch (e) {}
-      }
+    // Pattern 2: Application Deadline "Monday, July 21, 2025"
+    const deadlinePattern = /Application\s+Deadline.*?([A-Za-z]+),?\s+([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/gi;
+    match = deadlinePattern.exec(text);
+    if (match) {
+      try {
+        const dateStr = `${match[2]} ${match[3]}, ${match[4]}`;
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          deadlines.applicationDeadline = date;
+          console.log(`  → Application deadline: ${dateStr}`);
+        }
+      } catch (e) {}
+    }
+
+    // Pattern 3: Entry Test "July 13, 2025" or "July 27-28, 2025"
+    const testPattern = /Entry\s+Test.*?([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/gi;
+    const testMatches = Array.from(text.matchAll(testPattern));
+    if (testMatches.length > 0) {
+      try {
+        const firstTest = testMatches[0];
+        const dateStr = `${firstTest[1]} ${firstTest[2]}, ${firstTest[3]}`;
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          deadlines.testDate = date;
+          console.log(`  → First test date: ${dateStr}`);
+        }
+      } catch (e) {}
+    }
+
+    // Pattern 4: Display of Merit List "Wednesday, Aug 06, 2025"
+    const meritPattern = /(?:Display of )?Merit\s+List.*?([A-Za-z]+),?\s+([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/gi;
+    match = meritPattern.exec(text);
+    if (match) {
+      try {
+        const dateStr = `${match[2]} ${match[3]}, ${match[4]}`;
+        console.log(`  → Merit list: ${dateStr}`);
+      } catch (e) {}
     }
 
     return deadlines;

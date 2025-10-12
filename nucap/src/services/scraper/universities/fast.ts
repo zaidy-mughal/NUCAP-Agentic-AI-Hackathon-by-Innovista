@@ -29,6 +29,7 @@ export interface FASTData {
 
 export class FASTScraper {
   private baseUrl = 'https://www.nu.edu.pk';
+  private admissionsUrl = 'https://admissions.nu.edu.pk/';
   private jinaApiKey: string;
 
   constructor(jinaApiKey: string) {
@@ -45,10 +46,13 @@ export class FASTScraper {
     };
 
     try {
-      // Scrape admissions page
-      const admissionContent = await this.fetchWithJina(`${this.baseUrl}/Admissions`);
-      data.deadlines = this.extractDeadlines(admissionContent);
-      data.announcements = this.extractAnnouncements(admissionContent);
+      // Scrape admission schedule page
+      const scheduleContent = await this.fetchWithJina(`${this.baseUrl}/admissions/schedule`);
+      data.deadlines = this.extractDeadlines(scheduleContent);
+      data.announcements = this.extractAnnouncements(scheduleContent);
+      
+      console.log(`  ✓ Found ${Object.keys(data.deadlines).length} deadlines`);
+      console.log(`  ✓ Found ${data.announcements.length} announcements`);
     } catch (error) {
       console.error('FAST scraping error:', error);
     }
@@ -70,21 +74,43 @@ export class FASTScraper {
   private extractDeadlines(text: string): FASTData['deadlines'] {
     const deadlines: FASTData['deadlines'] = {};
     
-    const patterns = {
-      applicationDeadline: /(?:last date|deadline|apply by)[^\n]*?(\d{1,2}[\s\-\/]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+\d{4})/i,
-      testDate: /(?:test date|entry test)[^\n]*?(\d{1,2}[\s\-\/]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-\/]+\d{4})/i,
-    };
+    // FAST-specific patterns based on actual table format
+    // Table format: "| Admission Application Submission | May 19 (Mon) - Jul 4 (Fri) |"
+    
+    // Pattern 1: Application submission "May 19 (Mon) - Jul 4 (Fri)"
+    const appPattern = /([A-Za-z]+)\s+(\d{1,2})\s*\([A-Za-z]+\)\s*-\s*([A-Za-z]+)\s+(\d{1,2})\s*\(([A-Za-z]+)\)/gi;
+    let match = appPattern.exec(text);
+    
+    if (match) {
+      try {
+        // Extract year from context (look for year in text)
+        const yearMatch = text.match(/\b(202[0-9])\b/);
+        const year = yearMatch ? yearMatch[0] : new Date().getFullYear();
+        
+        const dateStr = `${match[3]} ${match[4]}, ${year}`;
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          deadlines.applicationDeadline = date;
+          console.log(`  → Application deadline: ${dateStr}`);
+        }
+      } catch (e) {}
+    }
 
-    for (const [key, pattern] of Object.entries(patterns)) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        try {
-          const date = new Date(match[1]);
-          if (!isNaN(date.getTime())) {
-            deadlines[key as keyof typeof deadlines] = date;
-          }
-        } catch (e) {}
-      }
+    // Pattern 2: Admission Tests "Jul 7 (Mon) - Jul 18 (Fri)"
+    const testPattern = /Admission Tests.*?([A-Za-z]+)\s+(\d{1,2})\s*\([A-Za-z]+\)\s*-\s*([A-Za-z]+)\s+(\d{1,2})\s*\([A-Za-z]+\)/gi;
+    match = testPattern.exec(text);
+    if (match) {
+      try {
+        const yearMatch = text.match(/\b(202[0-9])\b/);
+        const year = yearMatch ? yearMatch[0] : new Date().getFullYear();
+        
+        const dateStr = `${match[1]} ${match[2]}, ${year}`;
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          deadlines.testDate = date;
+          console.log(`  → Test starts: ${dateStr}`);
+        }
+      } catch (e) {}
     }
 
     return deadlines;
