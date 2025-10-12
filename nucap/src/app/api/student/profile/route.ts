@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { calculateMerit, calculateMatchScore, evaluateAdmissionChance } from '@/lib/meritCalculator';
 
 // Validation schema
 const profileSchema = z.object({
@@ -110,6 +111,9 @@ export async function POST(request: NextRequest) {
         interPercentage
       }
     });
+
+    // Generate university matches
+    await generateMatches(profile.id, matricPercentage, interPercentage, validatedData);
 
     return NextResponse.json({
       success: true,
@@ -238,6 +242,90 @@ export async function DELETE(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+// Helper function to generate university matches
+async function generateMatches(
+  profileId: string,
+  matricPercentage: number,
+  interPercentage: number,
+  profileData: any
+) {
+  try {
+    // Fetch all active universities with departments and merit lists
+    const universities = await prisma.university.findMany({
+      where: { isActive: true },
+      include: {
+        departments: {
+          include: {
+            meritLists: {
+              orderBy: { year: 'desc' },
+              take: 1
+            }
+          }
+        }
+      }
+    });
+
+    const matches = [];
+
+    for (const uni of universities) {
+      // Get test score for this university
+      const testScoreField = `${uni.shortName.toLowerCase()}TestScore` as keyof typeof profileData;
+      const testScore = profileData[testScoreField] || 0;
+
+      // Calculate merit for this university
+      const studentMerit = calculateMerit({
+        matricPercentage,
+        interPercentage,
+        testScore,
+        universityShortName: uni.shortName
+      });
+
+      // Create matches for each department
+      for (const dept of uni.departments) {
+        if (dept.meritLists.length === 0) continue;
+
+        const closingMerit = dept.meritLists[0].closingMerit;
+        const admissionChance = evaluateAdmissionChance(studentMerit, closingMerit);
+        const matchScore = calculateMatchScore(
+          studentMerit,
+          closingMerit,
+          profileData.preferredCities || [],
+          uni.location,
+          profileData.preferredFields || [],
+          dept.category
+        );
+
+        matches.push({
+          studentProfileId: profileId,
+          universityId: uni.id,
+          departmentId: dept.id,
+          matchScore,
+          estimatedMerit: studentMerit,
+          requiredMerit: closingMerit,
+          admissionChance: admissionChance.chance,
+          meritGap: studentMerit - closingMerit
+        });
+      }
+    }
+
+    // Delete existing matches for this profile
+    await prisma.studentMatch.deleteMany({
+      where: { studentProfileId: profileId }
+    });
+
+    // Create new matches
+    if (matches.length > 0) {
+      await prisma.studentMatch.createMany({
+        data: matches
+      });
+    }
+
+    console.log(`✓ Generated ${matches.length} matches for profile ${profileId}`);
+  } catch (error) {
+    console.error('Error generating matches:', error);
   }
 }
 
