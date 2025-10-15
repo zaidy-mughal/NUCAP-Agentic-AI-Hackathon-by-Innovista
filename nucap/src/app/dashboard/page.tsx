@@ -11,9 +11,51 @@ import {
   TrendingUp, 
   Bell,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Database,
+  BarChart3
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
+
+// Define TypeScript interfaces
+interface University {
+  id: string;
+  name: string;
+  shortName: string;
+  location: string;
+  testRequired: string;
+  lastScraped: Date | null;
+  departments: Department[];
+  timelines: AdmissionTimeline[];
+}
+
+interface Department {
+  id: string;
+  name: string;
+  degree: string;
+  duration: string;
+  seats: number | null;
+  category: string;
+}
+
+interface AdmissionTimeline {
+  id: string;
+  applicationDeadline: Date | null;
+  testDate: Date | null;
+  year: number;
+  isActive: boolean;
+}
+
+interface NustTestSeries {
+  id: string;
+  seriesName: string;
+  onlineRegistration: string | null;
+  cbnet: string | null;
+  pbnet: string | null;
+  testCentre: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -79,6 +121,41 @@ export default async function DashboardPage() {
     take: 5
   });
 
+  // Fetch all universities with their departments for dynamic display
+  const universities: University[] = await prisma.university.findMany({
+    where: {
+      isActive: true
+    },
+    include: {
+      departments: true,
+      timelines: {
+        where: {
+          isActive: true
+        },
+        orderBy: {
+          year: 'desc'
+        },
+        take: 1
+      }
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  });
+
+  // Fetch NUST test series data
+  let nustTestSeries: NustTestSeries[] = [];
+  try {
+    // Use the existing nust-dates endpoint which is confirmed to work
+    const nustResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/nust-dates`, {
+      next: { revalidate: 3600 } // Revalidate every hour
+    });
+    const nustData = await nustResponse.json();
+    nustTestSeries = nustData.data || [];
+  } catch (error) {
+    console.error('Error fetching NUST test series:', error);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
@@ -109,7 +186,7 @@ export default async function DashboardPage() {
             Welcome back, {user.name || 'Student'}!
           </h1>
           <p className="text-gray-600">
-            Here's your admission dashboard
+            Here&apos;s your admission dashboard
           </p>
         </div>
 
@@ -178,6 +255,124 @@ export default async function DashboardPage() {
                     <Link href="/matches">
                       <Button size="sm">View All Matches</Button>
                     </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* University Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  University Database
+                </CardTitle>
+                <CardDescription>
+                  All supported universities with their departments
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {universities.map((university) => (
+                    <div key={university.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-semibold text-gray-900 flex items-center gap-2">
+                            {university.name}
+                            <Badge variant="outline">{university.shortName}</Badge>
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            {university.location}
+                          </div>
+                          <div className="flex gap-2 mt-2">
+                            <Badge variant="secondary">
+                              {university.testRequired} Test
+                            </Badge>
+                            <Badge variant="outline">
+                              {university.departments.length} Departments
+                            </Badge>
+                            {university.lastScraped && (
+                              <Badge variant="outline">
+                                Scraped: {formatDistanceToNow(new Date(university.lastScraped), { addSuffix: true })}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Link href={`/universities/${university.id}`}>
+                          <Button variant="outline" size="sm">View Details</Button>
+                        </Link>
+                      </div>
+                      {university.timelines.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="text-sm font-medium text-gray-700">Latest Deadline:</div>
+                          <div className="text-sm text-gray-600">
+                            Application due {university.timelines[0].applicationDeadline 
+                              ? format(new Date(university.timelines[0].applicationDeadline), 'MMM d, yyyy')
+                              : 'TBA'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <Link href="/universities">
+                    <Button variant="outline" className="w-full">
+                      View All Universities
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* NUST Test Series */}
+            {nustTestSeries.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    NUST Test Series
+                  </CardTitle>
+                  <CardDescription>
+                    Upcoming NUST entry test schedules
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {nustTestSeries.map((series) => (
+                      <div key={series.id} className="border rounded-lg p-4">
+                        <div className="font-semibold text-gray-900">{series.seriesName}</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                          {series.onlineRegistration && (
+                            <div className="text-sm">
+                              <div className="text-gray-500">Online Registration</div>
+                              <div className="font-medium">{series.onlineRegistration}</div>
+                            </div>
+                          )}
+                          {series.cbnet && (
+                            <div className="text-sm">
+                              <div className="text-gray-500">CBNET</div>
+                              <div className="font-medium">{series.cbnet}</div>
+                            </div>
+                          )}
+                          {series.pbnet && (
+                            <div className="text-sm">
+                              <div className="text-gray-500">PBNET</div>
+                              <div className="font-medium">{series.pbnet}</div>
+                            </div>
+                          )}
+                          {series.testCentre && (
+                            <div className="text-sm">
+                              <div className="text-gray-500">Test Centres</div>
+                              <div className="font-medium">{series.testCentre}</div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          Last updated: {formatDistanceToNow(new Date(series.updatedAt), { addSuffix: true })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -353,4 +548,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-

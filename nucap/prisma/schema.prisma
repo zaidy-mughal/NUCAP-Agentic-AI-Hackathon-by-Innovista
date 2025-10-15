@@ -219,3 +219,17 @@ model ScrapingLog {
   
   @@map("scraping_logs")
 }
+
+// NUST Test Series Model
+model NustTestSeries {
+  id                  String      @id @default(cuid())
+  seriesName          String      @unique
+  onlineRegistration  String?
+  cbnet               String?
+  pbnet               String?
+  testCentre          String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@map("nust_test_series")
+}
