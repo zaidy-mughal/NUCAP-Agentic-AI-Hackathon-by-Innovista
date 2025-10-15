@@ -1,0 +1,624 @@
+{
+  "name": "NUST Admission Data Scraper",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule (Every 12 Hours)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ugadmissions.nust.edu.pk/",
+        "options": {
+          "headers": {
+            "headerParameters": [
+              {
+                "name": "User-Agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              },
+              {
+                "name": "Accept",
+                "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+              },
+              {
+                "name": "Accept-Language",
+                "value": "en-US,en;q=0.9"
+              }
+            ]
+          },
+          "redirect": {
+            "redirect": {
+              "followRedirects": true
+            }
+          }
+        }
+      },
+      "id": "fetch-admission-page",
+      "name": "Fetch NUST Admission Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        450,
+        300
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://nust.edu.pk/admissions/undergraduate-admissions/",
+        "options": {
+          "headers": {
+            "headerParameters": [
+              {
+                "name": "User-Agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              }
+            ]
+          }
+        }
+      },
+      "id": "fetch-general-info",
+      "name": "Fetch General Info Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        450,
+        500
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "main_content",
+              "cssSelector": "body",
+              "returnValue": "html"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-page-content",
+      "name": "Extract Page Content",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "general_content",
+              "cssSelector": "body",
+              "returnValue": "html"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-general-content",
+      "name": "Extract General Content",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        650,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean HTML and prepare for AI processing\nconst admissionHtml = $input.first().json.main_content;\nconst generalHtml = $input.last().json.general_content;\n\n// Remove scripts, styles, and extra whitespace\nfunction cleanHtml(html) {\n  if (!html) return '';\n  return html\n    .replace(/<script[^>]*>.*?<\\/script>/gis, '')\n    .replace(/<style[^>]*>.*?<\\/style>/gis, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .substring(0, 15000); // Limit to 15k chars for API\n}\n\nconst cleanedAdmission = cleanHtml(admissionHtml);\nconst cleanedGeneral = cleanHtml(generalHtml);\n\nreturn [\n  {\n    json: {\n      admissionPageContent: cleanedAdmission,\n      generalPageContent: cleanedGeneral,\n      scrapedAt: new Date().toISOString(),\n      university: 'NUST'\n    }\n  }\n];"
+      },
+      "id": "clean-html",
+      "name": "Clean HTML Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"You are a data extraction specialist for Pakistani university admissions. Extract admission information from the following NUST website content.\\n\\nIMPORTANT: Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:\\n\\n{\\n  \\\"university\\\": \\\"NUST\\\",\\n  \\\"admission_status\\\": \\\"open/closed/upcoming\\\",\\n  \\\"admission_start_date\\\": \\\"date or null\\\",\\n  \\\"admission_last_date\\\": \\\"date or null\\\",\\n  \\\"test_date\\\": \\\"date or null\\\",\\n  \\\"result_date\\\": \\\"date or null\\\",\\n  \\\"important_notices\\\": [\\\"notice1\\\", \\\"notice2\\\"],\\n  \\\"application_fee\\\": \\\"amount or null\\\",\\n  \\\"test_fee\\\": \\\"amount or null\\\",\\n  \\\"merit_formula\\\": \\\"description\\\",\\n  \\\"eligibility_criteria\\\": \\\"description\\\",\\n  \\\"contact_email\\\": \\\"email or null\\\",\\n  \\\"contact_phone\\\": \\\"phone or null\\\",\\n  \\\"useful_links\\\": [\\\"url1\\\", \\\"url2\\\"]\\n}\\n\\nWebsite Content:\\n{{ $json.admissionPageContent }}\\n\\n{{ $json.generalPageContent }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 2048\n  }\n}",
+        "options": {
+          "headers": {
+            "headerParameters": [
+              {
+                "name": "x-goog-api-key",
+                "value": "AIzaSyA7OYj7GyqsJiUi-TjxAinV0e0Y4E2rAoE"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "gemini-extract-admission",
+      "name": "Gemini - Extract Admission Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1050,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini API response and extract JSON\nconst response = $input.first().json;\n\nlet extractedData;\ntry {\n  // Get the text from Gemini response\n  const text = response.candidates[0].content.parts[0].text;\n  \n  // Try to parse as JSON directly\n  try {\n    extractedData = JSON.parse(text);\n  } catch (e) {\n    // If that fails, try to extract JSON from markdown code blocks\n    const jsonMatch = text.match(/```json\\n([\\s\\S]*?)\\n```/) || text.match(/```\\n([\\s\\S]*?)\\n```/);\n    if (jsonMatch) {\n      extractedData = JSON.parse(jsonMatch[1]);\n    } else {\n      // Last resort: try to find any JSON-like structure\n      const jsonStart = text.indexOf('{');\n      const jsonEnd = text.lastIndexOf('}') + 1;\n      if (jsonStart !== -1 && jsonEnd > jsonStart) {\n        extractedData = JSON.parse(text.substring(jsonStart, jsonEnd));\n      } else {\n        throw new Error('Could not extract JSON from response');\n      }\n    }\n  }\n  \n  // Add metadata\n  extractedData.scraped_at = new Date().toISOString();\n  extractedData.scraper_version = '1.0';\n  extractedData.source_url = 'https://ugadmissions.nust.edu.pk/';\n  \n  return [{ json: extractedData }];\n  \n} catch (error) {\n  // Return error information\n  return [{\n    json: {\n      error: true,\n      error_message: error.message,\n      raw_response: response,\n      scraped_at: new Date().toISOString()\n    }\n  }];\n}"
+      },
+      "id": "parse-gemini-response",
+      "name": "Parse Gemini Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ugadmissions.nust.edu.pk/MeritLists",
+        "options": {
+          "headers": {
+            "headerParameters": [
+              {
+                "name": "User-Agent",
+                "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              }
+            ]
+          }
+        }
+      },
+      "id": "fetch-merit-page",
+      "name": "Fetch Merit Lists Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1050,
+        600
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "merit_content",
+              "cssSelector": "body",
+              "returnValue": "html"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-merit-content",
+      "name": "Extract Merit Content",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"Extract NUST merit list information from this content. Return ONLY valid JSON with this structure:\\n\\n{\\n  \\\"merit_lists_available\\\": true/false,\\n  \\\"latest_merit_list_number\\\": \\\"1st/2nd/3rd or null\\\",\\n  \\\"merit_list_date\\\": \\\"date or null\\\",\\n  \\\"departments\\\": [\\n    {\\n      \\\"name\\\": \\\"department name\\\",\\n      \\\"last_merit_aggregate\\\": 85.5,\\n      \\\"closing_aggregate\\\": 85.5,\\n      \\\"seats\\\": 100\\n    }\\n  ],\\n  \\\"merit_formula_weights\\\": {\\n    \\\"matric\\\": 10,\\n    \\\"fsc_or_equivalent\\\": 15,\\n    \\\"net_test\\\": 75\\n  },\\n  \\\"notes\\\": [\\\"any important notes about merit\\\"]\\n}\\n\\nContent:\\n{{ $json.merit_content.substring(0, 10000) }}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.1,\n    \"maxOutputTokens\": 3000\n  }\n}",
+        "options": {
+          "headers": {
+            "headerParameters": [
+              {
+                "name": "x-goog-api-key",
+                "value": "AIzaSyA7OYj7GyqsJiUi-TjxAinV0e0Y4E2rAoE"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "gemini-extract-merit",
+      "name": "Gemini - Extract Merit Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1450,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse merit data from Gemini\nconst response = $input.first().json;\n\nlet meritData;\ntry {\n  const text = response.candidates[0].content.parts[0].text;\n  \n  // Extract JSON (handle markdown code blocks)\n  try {\n    meritData = JSON.parse(text);\n  } catch (e) {\n    const jsonMatch = text.match(/```json\\n([\\s\\S]*?)\\n```/) || text.match(/```\\n([\\s\\S]*?)\\n```/);\n    if (jsonMatch) {\n      meritData = JSON.parse(jsonMatch[1]);\n    } else {\n      const jsonStart = text.indexOf('{');\n      const jsonEnd = text.lastIndexOf('}') + 1;\n      meritData = JSON.parse(text.substring(jsonStart, jsonEnd));\n    }\n  }\n  \n  meritData.scraped_at = new Date().toISOString();\n  return [{ json: meritData }];\n  \n} catch (error) {\n  return [{\n    json: {\n      error: true,\n      error_message: error.message,\n      merit_lists_available: false,\n      scraped_at: new Date().toISOString()\n    }\n  }];\n}"
+      },
+      "id": "parse-merit-response",
+      "name": "Parse Merit Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1650,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine admission data and merit data\nconst admissionData = $('Parse Gemini Response').first().json;\nconst meritData = $('Parse Merit Response').first().json;\n\nconst combinedData = {\n  university: 'NUST',\n  session_year: new Date().getFullYear(),\n  \n  // Admission information\n  admission_info: {\n    status: admissionData.admission_status,\n    start_date: admissionData.admission_start_date,\n    last_date: admissionData.admission_last_date,\n    test_date: admissionData.test_date,\n    result_date: admissionData.result_date,\n    application_fee: admissionData.application_fee,\n    test_fee: admissionData.test_fee,\n    important_notices: admissionData.important_notices || [],\n    merit_formula: admissionData.merit_formula,\n    eligibility_criteria: admissionData.eligibility_criteria\n  },\n  \n  // Contact information\n  contact: {\n    email: admissionData.contact_email,\n    phone: admissionData.contact_phone,\n    useful_links: admissionData.useful_links || []\n  },\n  \n  // Merit information\n  merit_info: {\n    lists_available: meritData.merit_lists_available,\n    latest_merit_list: meritData.latest_merit_list_number,\n    merit_list_date: meritData.merit_list_date,\n    departments: meritData.departments || [],\n    merit_formula_weights: meritData.merit_formula_weights || {\n      matric: 10,\n      fsc_or_equivalent: 15,\n      net_test: 75\n    },\n    notes: meritData.notes || []\n  },\n  \n  // Metadata\n  scraped_at: new Date().toISOString(),\n  scraper_version: '1.0',\n  source_urls: {\n    admission: 'https://ugadmissions.nust.edu.pk/',\n    merit: 'https://ugadmissions.nust.edu.pk/MeritLists',\n    general: 'https://nust.edu.pk/admissions/undergraduate-admissions/'\n  },\n  \n  // Check for errors\n  has_errors: admissionData.error || meritData.error,\n  error_details: {\n    admission_error: admissionData.error_message || null,\n    merit_error: meritData.error_message || null\n  }\n};\n\nreturn [{ json: combinedData }];"
+      },
+      "id": "combine-data",
+      "name": "Combine All Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://your-domain.com/api/admin/scraping-complete",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "headers": {
+            "headerParameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-admin-token",
+                "value": "YOUR_SECRET_TOKEN_HERE"
+              }
+            ]
+          }
+        }
+      },
+      "id": "send-to-nextjs",
+      "name": "Send to Next.js API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2050,
+        400
+      ],
+      "notes": "Replace URL with your actual Next.js API endpoint"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log successful scraping\nconst data = $input.first().json;\n\nconsole.log('=== NUST Scraping Complete ===');\nconsole.log('Scraped at:', data.scraped_at);\nconsole.log('Admission Status:', data.admission_info?.status);\nconsole.log('Merit Lists Available:', data.merit_info?.lists_available);\nconsole.log('Departments Found:', data.merit_info?.departments?.length || 0);\nconsole.log('Has Errors:', data.has_errors);\n\nif (data.has_errors) {\n  console.log('Error Details:', data.error_details);\n}\n\nreturn [{\n  json: {\n    success: true,\n    summary: {\n      university: 'NUST',\n      scraped_at: data.scraped_at,\n      admission_status: data.admission_info?.status,\n      merit_lists_available: data.merit_info?.lists_available,\n      departments_count: data.merit_info?.departments?.length || 0,\n      has_errors: data.has_errors\n    }\n  }\n}];"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2250,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "error-check",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "check-for-errors",
+      "name": "Check for Errors",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        850,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle fetch errors\nconst error = $input.first();\n\nconsole.error('=== Scraping Error ===');\nconsole.error('Error:', error.json);\n\nreturn [{\n  json: {\n    error: true,\n    university: 'NUST',\n    error_message: 'Failed to fetch page',\n    error_details: error.json,\n    occurred_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "handle-fetch-error",
+      "name": "Handle Fetch Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://your-domain.com/api/admin/scraping-error",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "headers": {
+            "headerParameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "x-admin-token",
+                "value": "YOUR_SECRET_TOKEN_HERE"
+              }
+            ]
+          }
+        }
+      },
+      "id": "log-error-to-api",
+      "name": "Log Error to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1250,
+        800
+      ],
+      "notes": "Optional: Send errors to your Next.js API for monitoring"
+    }
+  ],
+  "connections": {
+    "Schedule (Every 12 Hours)": {
+      "main": [
+        [
+          {
+            "node": "Fetch NUST Admission Page",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch General Info Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NUST Admission Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Page Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch General Info Page": {
+      "main": [
+        [
+          {
+            "node": "Extract General Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Page Content": {
+      "main": [
+        [
+          {
+            "node": "Clean HTML Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract General Content": {
+      "main": [
+        [
+          {
+            "node": "Clean HTML Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean HTML Content": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Extract Admission Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check for Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Extract Admission Data": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response": {
+      "main": [
+        [
+          {
+            "node": "Combine All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Merit Lists Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Merit Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Merit Content": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Extract Merit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Extract Merit Data": {
+      "main": [
+        [
+          {
+            "node": "Parse Merit Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Merit Response": {
+      "main": [
+        [
+          {
+            "node": "Combine All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine All Data": {
+      "main": [
+        [
+          {
+            "node": "Send to Next.js API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Next.js API": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Errors": {
+      "main": [
+        [
+          {
+            "node": "Fetch Merit Lists Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Fetch Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Fetch Error": {
+      "main": [
+        [
+          {
+            "node": "Log Error to API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-14T12:00:00.000Z",
+  "versionId": "1"
+}

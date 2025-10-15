@@ -1,0 +1,28 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyA7OYj7GyqsJiUi-TjxAinV0e0Y4E2rAoE",
+        "authentication": "none",
+        "responseFormat": "json",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "bodyContentType": "json",
+        "bodyParametersJson": "{\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are a data extraction specialist for Pakistani university admissions. Extract admission information from the following NUST website content.\\n\\nIMPORTANT: Return ONLY valid JSON, no markdown, no explanation. Use this exact structure:\\n\\n{\\n  \\\"university\\\": \\\"NUST\\\",\\n  \\\"admission_status\\\": \\\"open/closed/upcoming\\\",\\n  \\\"admission_start_date\\\": \\\"date or null\\\",\\n  \\\"admission_last_date\\\": \\\"date or null\\\",\\n  \\\"test_date\\\": \\\"date or null\\\",\\n  \\\"result_date\\\": \\\"date or null\\\",\\n  \\\"important_notices\\\": [\\\"notice1\\\", \\\"notice2\\\"],\\n  \\\"application_fee\\\": \\\"amount or null\\\",\\n  \\\"test_fee\\\": \\\"amount or null\\\",\\n  \\\"merit_formula\\\": \\\"description\\\",\\n  \\\"eligibility_criteria\\\": \\\"description\\\",\\n  \\\"contact_email\\\": \\\"email or null\\\",\\n  \\\"contact_phone\\\": \\\"phone or null\\\",\\n  \\\"useful_links\\\": [\\\"url1\\\", \\\"url2\\\"]\\n}\\n\\nWebsite Content:\\n{{ $json.admissionPageContent }}\\n\\n{{ $json.generalPageContent }}\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"topK\": 40,\n    \"topP\": 0.95,\n    \"maxOutputTokens\": 2048\n  }\n}"
+      },
+      "name": "Gemini Extract Admission Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [600, 300]
+    }
+  ],
+  "connections": {}
+}

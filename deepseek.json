@@ -1,0 +1,75 @@
+{
+    "name": "NUST Admission Scraper with DeepSeek",
+    "nodes": [
+      {
+        "parameters": {
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "method": "POST",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"model\": \"deepseek/deepseek-chat\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a data extraction specialist for Pakistani university admissions. Return ONLY valid JSON with the specified structure. No markdown formatting, no code blocks, no explanations - just pure JSON.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Extract admission information from the following NUST website content. Return ONLY valid JSON (no ```json blocks).\\n\\nRequired JSON structure:\\n{\\n  \\\"university\\\": \\\"NUST\\\",\\n  \\\"admission_status\\\": \\\"open/closed/upcoming\\\",\\n  \\\"admission_start_date\\\": \\\"date or null\\\",\\n  \\\"admission_last_date\\\": \\\"date or null\\\",\\n  \\\"test_date\\\": \\\"date or null\\\",\\n  \\\"result_date\\\": \\\"date or null\\\",\\n  \\\"important_notices\\\": [],\\n  \\\"application_fee\\\": \\\"amount or null\\\",\\n  \\\"test_fee\\\": \\\"amount or null\\\",\\n  \\\"merit_formula\\\": \\\"description or null\\\",\\n  \\\"eligibility_criteria\\\": \\\"description or null\\\",\\n  \\\"contact_email\\\": \\\"email or null\\\",\\n  \\\"contact_phone\\\": \\\"phone or null\\\",\\n  \\\"useful_links\\\": []\\n}\\n\\nWebsite Content:\\n{{ $json.admissionPageContent }}\\n\\n{{ $json.generalPageContent }}\"\n    }\n  ],\n  \"temperature\": 0.3,\n  \"max_tokens\": 2000\n}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer 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"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "HTTP-Referer",
+                "value": "https://n8n.io"
+              },
+              {
+                "name": "X-Title",
+                "value": "NUST Admission Scraper"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "deepseek-extract",
+        "name": "OpenRouter - DeepSeek Extract",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [850, 400]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse DeepSeek response and extract JSON\nconst items = $input.all();\nconst outputs = [];\n\nfor (const item of items) {\n  try {\n    const response = item.json;\n    \n    // Extract the content from OpenRouter response\n    let text = '';\n    \n    if (response.choices && response.choices[0] && response.choices[0].message) {\n      text = response.choices[0].message.content || '';\n    } else if (typeof response === 'string') {\n      text = response;\n    } else {\n      throw new Error('Unexpected response structure');\n    }\n    \n    // Clean and parse JSON\n    let extractedData;\n    \n    // Remove markdown code blocks if present\n    text = text.trim();\n    const codeBlockMatch = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n    if (codeBlockMatch) {\n      text = codeBlockMatch[1].trim();\n    }\n    \n    // Find JSON object boundaries\n    const jsonStart = text.indexOf('{');\n    const jsonEnd = text.lastIndexOf('}') + 1;\n    \n    if (jsonStart === -1 || jsonEnd <= jsonStart) {\n      throw new Error('No valid JSON object found in response');\n    }\n    \n    const jsonString = text.substring(jsonStart, jsonEnd);\n    extractedData = JSON.parse(jsonString);\n    \n    // Add metadata\n    extractedData.scraped_at = new Date().toISOString();\n    extractedData.scraper_version = '1.0';\n    extractedData.source = 'https://ugadmissions.nust.edu.pk/';\n    \n    // Ensure all required fields exist with defaults\n    const defaults = {\n      university: 'NUST',\n      admission_status: null,\n      admission_start_date: null,\n      admission_last_date: null,\n      test_date: null,\n      result_date: null,\n      important_notices: [],\n      application_fee: null,\n      test_fee: null,\n      merit_formula: null,\n      eligibility_criteria: null,\n      contact_email: null,\n      contact_phone: null,\n      useful_links: []\n    };\n    \n    extractedData = { ...defaults, ...extractedData };\n    \n    outputs.push({ json: extractedData });\n    \n  } catch (error) {\n    // Return error object for debugging\n    outputs.push({\n      json: {\n        error: true,\n        error_message: error.message,\n        error_stack: error.stack,\n        raw_response: item.json,\n        scraped_at: new Date().toISOString()\n      }\n    });\n  }\n}\n\nreturn outputs;"
+        },
+        "id": "parse-deepseek-response",
+        "name": "Parse DeepSeek Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1100, 400]
+      }
+    ],
+    "connections": {
+      "OpenRouter - DeepSeek Extract": {
+        "main": [
+          [
+            {
+              "node": "Parse DeepSeek Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "versionId": "1"
+  }
