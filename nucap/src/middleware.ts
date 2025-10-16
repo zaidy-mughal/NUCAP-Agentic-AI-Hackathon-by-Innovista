@@ -10,7 +10,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/nust-dates(.*)',
   '/universities(.*)',
   '/about(.*)',
-  '/admin/login(.*)'
+  '/admin/login(.*)',
+  '/api/admin/login(.*)'  // Add this line to allow access to admin login API
 ]);
 
 const isProtectedRoute = createRouteMatcher([
@@ -24,7 +25,18 @@ const isAdminRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  // Handle admin routes separately
+  // Handle admin API routes separately
+  if (request.nextUrl.pathname.startsWith('/api/admin/')) {
+    // Allow access to admin login API
+    if (request.nextUrl.pathname === '/api/admin/login') {
+      return NextResponse.next();
+    }
+    
+    // For other admin API routes, we'll handle authentication in the route handlers
+    return NextResponse.next();
+  }
+  
+  // Handle admin page routes
   if (isAdminRoute(request)) {
     // Allow access to admin login page
     if (request.nextUrl.pathname === '/admin/login') {

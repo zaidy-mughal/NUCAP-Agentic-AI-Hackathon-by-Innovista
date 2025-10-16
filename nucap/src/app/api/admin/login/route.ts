@@ -18,8 +18,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const cookieStore = await cookies();
-    cookieStore.set('admin-session', sessionToken, {
+    // Create response first
+    const response = NextResponse.json({ success: true, message: 'Login successful' });
+    
+    // Set cookie on the response
+    response.cookies.set('admin-session', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -27,7 +30,7 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 
-    return NextResponse.json({ success: true, message: 'Login successful' });
+    return response;
   } catch (error) {
     console.error('Admin login error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
