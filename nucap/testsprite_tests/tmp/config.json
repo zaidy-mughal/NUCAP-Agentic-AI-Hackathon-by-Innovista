@@ -1,0 +1,12 @@
+{
+  "api_key": "sk-user-gc6LQu88mhe8YoANGDQjceFxJCcKJuxh5IAAo1DuZJxrosYEaG98RBeu19HI-3MKSt7Y-JNOsbsNeHQyZGBFaOpbxmi-yN-GXuVAIzvrBOZKPR70PieefOFGR91BC_Jw_gg",
+  "executionArgs": {
+    "projectName": "nucap",
+    "projectPath": "d:\\pak institutioner\\nucap",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "your-api-key"
+    }
+  }
+}

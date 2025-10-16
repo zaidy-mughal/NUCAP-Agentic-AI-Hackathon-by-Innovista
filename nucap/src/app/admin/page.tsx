@@ -208,78 +208,7 @@ export default async function AdminPage() {
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Scraping Status */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <RefreshCw className="h-5 w-5" />
-                    Recent Scraping Activity
-                  </span>
-                  <form action="/api/cron/scrape-universities" method="POST">
-                    <Button size="sm" variant="outline">
-                      Trigger Scraping
-                    </Button>
-                  </form>
-                </CardTitle>
-                <CardDescription>
-                  Last 10 scraping jobs
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {recentLogs.length > 0 ? (
-                    recentLogs.map((log) => (
-                      <div 
-                        key={log.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          {log.status === 'success' ? (
-                            <CheckCircle className="h-5 w-5 text-green-600" />
-                          ) : (
-                            <AlertCircle className="h-5 w-5 text-red-600" />
-                          )}
-                          <div>
-                            <div className="font-semibold text-sm">
-                              {log.university?.shortName || 'Unknown University'}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {log.dataType} • <time
-                                suppressHydrationWarning
-                                dateTime={new Date(log.completedAt).toISOString()}
-                              >
-                                {new Date(log.completedAt).toISOString().replace('T', ' ').slice(0, 16)}
-                              </time>
-                            </div>
-                            {log.errorMessage && (
-                              <div className="text-xs text-red-600 mt-1">
-                                {log.errorMessage}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>
-                            {log.status}
-                          </Badge>
-                          {log.executionTime && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {log.executionTime}ms
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      No scraping activity found
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          
 
           {/* Quick Actions */}
           <div className="space-y-6">
@@ -316,29 +245,7 @@ export default async function AdminPage() {
             </Card>
 
             {/* System Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle>System Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Database</span>
-                    <Badge variant={error ? "destructive" : "default"}>
-                      {error ? "Disconnected" : "Connected"}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Scraping Success</span>
-                    <span className="text-sm font-medium">{successfulScrapes}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Scraping Failed</span>
-                    <span className="text-sm font-medium">{failedScrapes}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            
           </div>
         </div>
       </div>

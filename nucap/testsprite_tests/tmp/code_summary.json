@@ -1,0 +1,35 @@
+{
+  "tech_stack": ["TypeScript", "Next.js", "React", "Prisma", "PostgreSQL", "Clerk", "Tailwind CSS"],
+  "features": [
+    {
+      "name": "User Authentication",
+      "description": "Authentication system using Clerk for sign up, sign in, and session management",
+      "files": ["src/app/sign-in/[[...sign-in]]/page.tsx", "src/app/sign-up/[[...sign-up]]/page.tsx", "src/middleware.ts"]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Main user dashboard displaying university data, deadlines, and profile information",
+      "files": ["src/app/dashboard/page.tsx"]
+    },
+    {
+      "name": "Profile Management",
+      "description": "Student profile creation and management system",
+      "files": ["src/app/profile/create/page.tsx", "src/app/api/student/profile/route.ts"]
+    },
+    {
+      "name": "University Data",
+      "description": "University information display with departments and admission details",
+      "files": ["src/app/universities/page.tsx", "src/app/api/universities/route.ts"]
+    },
+    {
+      "name": "Admin Console",
+      "description": "Admin interface for managing university data, merit lists, and timelines",
+      "files": ["src/app/admin/page.tsx", "src/app/admin/universities/page.tsx", "src/app/admin/merit/page.tsx", "src/app/admin/timeline/page.tsx"]
+    },
+    {
+      "name": "Web Scraping",
+      "description": "Automated data collection from university websites",
+      "files": ["src/services/scraper/universities/nust.ts", "src/services/scraper/universities/fast.ts", "src/services/scraper/universities/comsats.ts"]
+    }
+  ]
+}
