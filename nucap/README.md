@@ -493,6 +493,39 @@ User (1) ──────────────> (1) StudentProfile
 
 ---
 
+## 🧪 Testing
+
+The application includes a comprehensive test suite to ensure reliability and correctness.
+
+### Test Structure
+- **Unit Tests**: Located in `__tests__` directory
+- **Integration Tests**: API route tests
+- **Authentication Tests**: Admin and user authentication flows
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run specific test file
+npx jest __tests__/adminAuth.test.ts
+```
+
+### Test Coverage
+- Admin authentication system
+- Student profile API endpoints
+- University management API endpoints
+- Core application functionality
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions from the community! Here's how you can help:
