@@ -1,42 +1,51 @@
-# API Keys and sensitive files
-api key.txt
-*.key
-*.pem
-.env
-.env.local
-.env.production
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# OS generated files
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+*.pem
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# Logs
-*.log
-logs/
+# env files (can opt-in for committing if needed)
+.env*
 
-# Dependencies
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+/src/generated/prisma
+
+# Playwright
 node_modules/
-vendor/
-
-# Build outputs
-dist/
-build/
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Temporary files
-*.tmp
-*.temp
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
