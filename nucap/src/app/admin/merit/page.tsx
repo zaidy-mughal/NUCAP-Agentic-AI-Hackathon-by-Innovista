@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
 import { GraduationCap, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
@@ -64,7 +65,7 @@ export default function AdminMeritPage() {
 
   const fetchUniversities = async () => {
     try {
-      const response = await fetch('/api/admin/universities');
+      const response = await fetch('/api/admin/universities?include=departments');
       const data = await response.json();
       if (data.success) {
         setUniversities(data.universities);

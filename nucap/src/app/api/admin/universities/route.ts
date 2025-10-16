@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Check admin authentication
     const isAdmin = await isAdminAuthenticated();
@@ -74,12 +74,17 @@ export async function GET() {
       );
     }
 
-    // Fetch all universities with departments count
+    // Check if we need to include departments (for merit list page)
+    const { searchParams } = new URL(request.url);
+    const includeDepartments = searchParams.get('include') === 'departments';
+
+    // Fetch all universities
     const universities = await prisma.university.findMany({
       include: {
         _count: {
           select: { departments: true }
-        }
+        },
+        ...(includeDepartments ? { departments: true } : {})
       },
       orderBy: {
         name: 'asc'
