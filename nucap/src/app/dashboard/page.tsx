@@ -21,17 +21,6 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 
 // Define TypeScript interfaces
-interface University {
-  id: string;
-  name: string;
-  shortName: string;
-  location: string;
-  testRequired: string;
-  lastScraped: Date | null;
-  departments: Department[];
-  timelines: AdmissionTimeline[];
-}
-
 interface Department {
   id: string;
   name: string;
@@ -129,6 +118,12 @@ export default async function DashboardPage() {
     });
   }
 
+  // Ensure user is not null before proceeding
+  if (!user) {
+    // Handle the case where user creation failed
+    redirect('/sign-in');
+  }
+
   const hasProfile = !!user.studentProfile;
 
   // Fetch upcoming deadlines
@@ -160,28 +155,6 @@ export default async function DashboardPage() {
       createdAt: 'desc'
     },
     take: 5
-  });
-
-  // Fetch all universities with their departments for dynamic display
-  const universities: University[] = await prisma.university.findMany({
-    where: {
-      isActive: true
-    },
-    include: {
-      departments: true,
-      timelines: {
-        where: {
-          isActive: true
-        },
-        orderBy: {
-          year: 'desc'
-        },
-        take: 1
-      }
-    },
-    orderBy: {
-      name: 'asc'
-    }
   });
 
   // Fetch recently added merit lists
@@ -286,7 +259,7 @@ export default async function DashboardPage() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <div className="text-sm text-gray-600 mb-1">Matric</div>
                       <div className="text-2xl font-bold text-blue-600">
-                        {user.studentProfile?.matricPercentage.toFixed(1)}%
+                        {user.studentProfile?.matricPercentage?.toFixed(1)}%
                       </div>
                       <div className="text-xs text-gray-500">
                         {user.studentProfile?.matricBoard}
@@ -295,7 +268,7 @@ export default async function DashboardPage() {
                     <div className="bg-green-50 p-4 rounded-lg">
                       <div className="text-sm text-gray-600 mb-1">Inter</div>
                       <div className="text-2xl font-bold text-green-600">
-                        {user.studentProfile?.interPercentage.toFixed(1)}%
+                        {user.studentProfile?.interPercentage?.toFixed(1)}%
                       </div>
                       <div className="text-xs text-gray-500">
                         {user.studentProfile?.interGroup}
@@ -304,7 +277,7 @@ export default async function DashboardPage() {
                     <div className="bg-purple-50 p-4 rounded-lg">
                       <div className="text-sm text-gray-600 mb-1">Matches</div>
                       <div className="text-2xl font-bold text-purple-600">
-                        {user.studentProfile?.matches.length || 0}
+                        {user.studentProfile?.matches?.length || 0}
                       </div>
                       <div className="text-xs text-gray-500">
                         Universities
@@ -323,70 +296,66 @@ export default async function DashboardPage() {
               </Card>
             )}
 
-            {/* University Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  University Database
-                </CardTitle>
-                <CardDescription>
-                  All supported universities with their departments
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {universities.map((university) => (
-                    <div key={university.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-semibold text-gray-900 flex items-center gap-2">
-                            {university.name}
-                            <Badge variant="outline">{university.shortName}</Badge>
+            {/* Top Matches - Moved to be right after Academic Profile */}
+            {hasProfile && user.studentProfile?.matches && user.studentProfile.matches.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Your Top University Matches
+                  </CardTitle>
+                  <CardDescription>
+                    Based on your academic profile
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {user.studentProfile.matches.map((match) => (
+                      <div 
+                        key={match.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                      >
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900">
+                            {match.university.name}
                           </div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            {university.location}
+                          <div className="text-sm text-gray-600">
+                            {match.department.name} - {match.department.degree}
                           </div>
                           <div className="flex gap-2 mt-2">
-                            <Badge variant="secondary">
-                              {university.testRequired} Test
+                            <Badge 
+                              variant={
+                                match.admissionChance === 'High' ? 'default' :
+                                match.admissionChance === 'Good' ? 'secondary' :
+                                'outline'
+                              }
+                            >
+                              {match.admissionChance} Chance
                             </Badge>
                             <Badge variant="outline">
-                              {university.departments.length} Departments
+                              Merit: {match.estimatedMerit.toFixed(1)}%
                             </Badge>
-                            {university.lastScraped && (
-                              <Badge variant="outline">
-                                Scraped: {formatDistanceToNow(new Date(university.lastScraped), { addSuffix: true })}
-                              </Badge>
-                            )}
                           </div>
                         </div>
-                        <Link href={`/universities/${university.id}`}>
-                          <Button variant="outline" size="sm">View Details</Button>
-                        </Link>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {match.matchScore}
+                          </div>
+                          <div className="text-xs text-gray-500">Match Score</div>
+                        </div>
                       </div>
-                      {university.timelines.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <div className="text-sm font-medium text-gray-700">Latest Deadline:</div>
-                          <div className="text-sm text-gray-600">
-                            Application due {university.timelines[0].applicationDeadline 
-                              ? format(new Date(university.timelines[0].applicationDeadline), 'MMM d, yyyy')
-                              : 'TBA'}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <Link href="/universities">
-                    <Button variant="outline" className="w-full">
-                      View All Universities
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <Link href="/matches">
+                      <Button variant="outline" className="w-full">
+                        View All Matches
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Recently Added Merit Lists */}
             {recentMeritLists.length > 0 && (
@@ -482,67 +451,6 @@ export default async function DashboardPage() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Top Matches */}
-            {hasProfile && user.studentProfile?.matches && user.studentProfile.matches.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Your Top University Matches
-                  </CardTitle>
-                  <CardDescription>
-                    Based on your academic profile
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {user.studentProfile.matches.map((match) => (
-                      <div 
-                        key={match.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                      >
-                        <div className="flex-1">
-                          <div className="font-semibold text-gray-900">
-                            {match.university.name}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {match.department.name} - {match.department.degree}
-                          </div>
-                          <div className="flex gap-2 mt-2">
-                            <Badge 
-                              variant={
-                                match.admissionChance === 'High' ? 'default' :
-                                match.admissionChance === 'Good' ? 'secondary' :
-                                'outline'
-                              }
-                            >
-                              {match.admissionChance} Chance
-                            </Badge>
-                            <Badge variant="outline">
-                              Merit: {match.estimatedMerit.toFixed(1)}%
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {match.matchScore}
-                          </div>
-                          <div className="text-xs text-gray-500">Match Score</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4">
-                    <Link href="/matches">
-                      <Button variant="outline" className="w-full">
-                        View All Matches
-                      </Button>
-                    </Link>
                   </div>
                 </CardContent>
               </Card>
