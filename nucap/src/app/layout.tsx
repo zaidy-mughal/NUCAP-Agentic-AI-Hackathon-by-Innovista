@@ -22,10 +22,13 @@ export default function RootLayout({
     <ClerkProvider
       appearance={{
         elements: {
-          // Hide the floating button that appears on pages
+          // Hide all floating buttons and elements that appear on pages
           impersonationFab: { display: "none" },
-          // Also hide any other floating elements
           userButtonPopoverMain: { display: "none" },
+          // Hide the organization switcher if it exists
+          organizationSwitcherPopoverMain: { display: "none" },
+          // Hide any other potential floating elements
+          scrollBox: { display: "none" },
         }
       }}
     >
