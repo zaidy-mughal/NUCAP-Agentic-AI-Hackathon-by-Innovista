@@ -94,9 +94,7 @@ export default function AdminMeritPage() {
     
     // Get departments for the selected university
     const university = universities.find(uni => uni.id === universityId);
-    if (university) {
-      setDepartments(university.departments);
-    }
+    setDepartments(university?.departments ?? []);
   };
 
   const addMeritEntry = () => {
@@ -266,11 +264,14 @@ export default function AdminMeritPage() {
                               <SelectValue placeholder="Select department" />
                             </SelectTrigger>
                             <SelectContent>
-                              {departments.map(dept => (
+                              {(departments ?? []).map(dept => (
                                 <SelectItem key={dept.id} value={dept.id}>
                                   {dept.name} ({dept.degree})
                                 </SelectItem>
                               ))}
+                              {(!departments || departments.length === 0) && (
+                                <div className="px-3 py-2 text-sm text-gray-500">No departments found</div>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>

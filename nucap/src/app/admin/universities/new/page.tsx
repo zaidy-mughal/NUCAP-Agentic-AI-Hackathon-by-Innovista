@@ -36,9 +36,21 @@ export default function NewUniversityPage() {
     setSuccess(false);
 
     try {
-      // For now, we'll use a simple approach to add a university
-      // In a real implementation, you would create an API endpoint for this
-      alert('University creation would be implemented here. For now, this is a demo.');
+      const response = await fetch('/api/admin/universities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+      console.log('API Response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to create university');
+      }
+
       setSuccess(true);
       
       // Redirect to universities list after a short delay
@@ -46,7 +58,8 @@ export default function NewUniversityPage() {
         router.push('/admin/universities');
       }, 1000);
     } catch (err) {
-      setError('Failed to create university');
+      console.error('Error creating university:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create university');
     } finally {
       setLoading(false);
     }
@@ -92,7 +105,7 @@ export default function NewUniversityPage() {
           <CardContent>
             {error && (
               <div className="mb-6 bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">
-                {error}
+                Error: {error}
               </div>
             )}
 
