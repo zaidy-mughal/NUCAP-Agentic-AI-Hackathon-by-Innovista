@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
-import { GraduationCap, ArrowLeft } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Trash2 } from 'lucide-react';
 
 interface University {
   id: string;
@@ -18,7 +19,10 @@ interface University {
   website: string;
   testRequired: string;
   isActive: boolean;
-  departments: Department[];
+  _count?: {
+    departments: number;
+  };
+  departments?: Department[];
 }
 
 interface Department {
@@ -33,6 +37,7 @@ export default function AdminUniversitiesPage() {
   const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUniversities();
@@ -56,6 +61,35 @@ export default function AdminUniversitiesPage() {
       setError('Failed to fetch universities');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete ${name}? This action cannot be undone and will also delete all associated departments and data.`)) {
+      return;
+    }
+
+    try {
+      setDeletingId(id);
+      const response = await fetch(`/api/admin/universities?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Remove university from state
+        setUniversities(universities.filter(uni => uni.id !== id));
+        // Show success message
+        alert('University deleted successfully');
+      } else {
+        setError(data.error || 'Failed to delete university');
+      }
+    } catch (err) {
+      setError('Failed to delete university');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -90,9 +124,9 @@ export default function AdminUniversitiesPage() {
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">
-            {error}
-          </div>
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {loading ? (
@@ -122,7 +156,7 @@ export default function AdminUniversitiesPage() {
                               {uni.testRequired}
                             </span>
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              {uni.departments.length} Departments
+                              {(uni._count?.departments || uni.departments?.length || 0)} Departments
                             </span>
                           </div>
                         </div>
@@ -130,9 +164,28 @@ export default function AdminUniversitiesPage() {
                           <Link href={`/admin/universities/${uni.id}/edit`}>
                             <Button variant="outline" size="sm">Edit</Button>
                           </Link>
-                          <Link href={`/admin/universities/${uni.id}/departments`}>
+                          <Link href={`/admin/universities/${uni.id}/departments?name=${encodeURIComponent(uni.name)}`}>
                             <Button variant="outline" size="sm">Departments</Button>
                           </Link>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDelete(uni.id, uni.name)}
+                            disabled={deletingId === uni.id}
+                            className="text-red-600 border-red-600 hover:bg-red-50"
+                          >
+                            {deletingId === uni.id ? (
+                              <span className="flex items-center">
+                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-1"></span>
+                                Deleting...
+                              </span>
+                            ) : (
+                              <span className="flex items-center">
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </span>
+                            )}
+                          </Button>
                         </div>
                       </div>
                     </div>
