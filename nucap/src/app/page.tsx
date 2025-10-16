@@ -35,6 +35,9 @@ export default function HomePage() {
             <Link href="/sign-up">
               <Button>Get Started</Button>
             </Link>
+            <Link href="/admin/login">
+              <Button variant="outline">Admin</Button>
+            </Link>
           </div>
         </div>
       </nav>

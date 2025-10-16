@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { ZodError } from 'zod';
 import { calculateMerit, calculateMatchScore, evaluateAdmissionChance } from '@/lib/meritCalculator';
 
 // Validation schema
@@ -22,6 +23,9 @@ const profileSchema = z.object({
   preferredFields: z.array(z.string()),
   budgetRange: z.string().optional()
 });
+
+// Type for profile data
+type ProfileData = z.infer<typeof profileSchema>;
 
 // GET - Fetch student profile
 export async function GET(request: NextRequest) {
@@ -134,16 +138,26 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    // Surface DB connectivity problems clearly (e.g., ECONNREFUSED)
+    if (error && typeof error === 'object' && 'code' in error) {
+      const err = error as { code?: string; message?: string };
+      if (err.code === 'ECONNREFUSED') {
+        return NextResponse.json(
+          { error: 'Database connection refused. Check DATABASE_URL and network connectivity.' },
+          { status: 503 }
+        );
+      }
+    }
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
 
     // Handle Prisma unique constraint errors
     if (error && typeof error === 'object' && 'code' in error) {
-      const prismaError = error as { code: string; meta?: any };
+      const prismaError = error as { code: string; meta?: Record<string, unknown> };
       if (prismaError.code === 'P2002') {
         return NextResponse.json(
           { 
@@ -213,9 +227,9 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
@@ -277,7 +291,7 @@ async function generateMatches(
   profileId: string,
   matricPercentage: number,
   interPercentage: number,
-  profileData: any
+  profileData: ProfileData
 ) {
   try {
     // Fetch all active universities with departments and merit lists
@@ -299,8 +313,14 @@ async function generateMatches(
 
     for (const uni of universities) {
       // Get test score for this university
-      const testScoreField = `${uni.shortName.toLowerCase()}TestScore` as keyof typeof profileData;
-      const testScore = profileData[testScoreField] || 0;
+      let testScore = 0;
+      if (uni.shortName === 'NUST' && profileData.nustTestScore) {
+        testScore = profileData.nustTestScore;
+      } else if (uni.shortName === 'FAST' && profileData.fastTestScore) {
+        testScore = profileData.fastTestScore;
+      } else if (uni.shortName === 'COMSATS' && profileData.ntsTestScore) {
+        testScore = profileData.ntsTestScore;
+      }
 
       // Calculate merit for this university
       const studentMerit = calculateMerit({
@@ -355,4 +375,3 @@ async function generateMatches(
     console.error('Error generating matches:', error);
   }
 }
-

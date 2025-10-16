@@ -1,4 +1,3 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,12 +13,13 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
+import { isAdminAuthenticated } from '@/lib/adminAuth';
 
 export default async function AdminPage() {
-  const { userId } = await auth();
-
-  if (!userId) {
-    redirect('/sign-in');
+  // Check admin authentication
+  const isAuthenticated = await isAdminAuthenticated();
+  if (!isAuthenticated) {
+    redirect('/admin/login');
   }
 
   // Fetch statistics
@@ -60,6 +60,9 @@ export default async function AdminPage() {
             <Link href="/admin/universities">
               <Button variant="ghost">Manage Universities</Button>
             </Link>
+            <form action="/api/admin/logout" method="POST">
+              <Button variant="ghost" type="submit">Logout</Button>
+            </form>
           </div>
         </div>
       </nav>
@@ -260,4 +263,3 @@ export default async function AdminPage() {
     </div>
   );
 }
-

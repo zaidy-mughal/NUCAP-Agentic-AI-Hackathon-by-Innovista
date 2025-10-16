@@ -270,62 +270,45 @@ Admission Chance:
 
 ## 🚀 Getting Started
 
-### Prerequisites
+First, run the development server:
 
-- Node.js 18+ installed
-- PostgreSQL 16+ installed (or cloud database)
-- Clerk account for authentication
-- Jina AI API key
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-### Installation
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/saadkhantareen/pak-institutioner.git
-   cd pak-institutioner/nucap
+## Admin Panel
+
+The application includes an admin panel for managing university data, merit lists, and admission timelines.
+
+### Admin Setup
+
+1. Create a `.env` file based on `.env.example`
+2. Set your admin credentials:
+   ```
+   ADMIN_USERNAME=your_admin_username
+   ADMIN_PASSWORD=your_admin_password
    ```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### Accessing the Admin Panel
 
-3. **Set up environment variables**
-   
-   Create `.env.local` file:
-   ```env
-   # Clerk Authentication
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-   CLERK_SECRET_KEY=your_clerk_secret_key
-   
-   # Database
-   DATABASE_URL="postgresql://user:password@localhost:5432/nucap?schema=public"
-   
-   # Jina AI
-   JINA_API_KEY=your_jina_api_key
-   
-   # App
-   NEXT_PUBLIC_APP_URL=http://localhost:3000
-   CRON_SECRET=your-secret-key
-   NODE_ENV=development
-   ```
+1. Navigate to [http://localhost:3000/admin](http://localhost:3000/admin)
+2. You'll be redirected to the login page if not authenticated
+3. Enter your admin credentials to access the panel
 
-4. **Set up database**
-   ```bash
-   npx prisma generate
-   npx prisma migrate dev
-   npx prisma db seed
-   ```
+### Admin Features
 
-5. **Run development server**
-   ```bash
-   npm run dev
-   ```
-
-6. **Open application**
-   ```
-   http://localhost:3000
-   ```
+- **University Management**: Add, edit, and manage universities and their departments
+- **Merit Lists**: Create and update merit lists for university departments
+- **Admission Timelines**: Set important dates for admission processes
+- **System Monitoring**: View system statistics and scraping logs
 
 ### Quick Start Commands
 

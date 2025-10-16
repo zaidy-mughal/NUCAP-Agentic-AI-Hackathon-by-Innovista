@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
+import { isAdminAuthenticated } from '@/lib/adminAuth';
 
 const deadlineSchema = z.object({
   universityId: z.string(),
@@ -18,9 +19,9 @@ const deadlineSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
+    // Check admin authentication
+    const isAdmin = await isAdminAuthenticated();
+    if (!isAdmin) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -31,7 +32,16 @@ export async function POST(request: NextRequest) {
     const validatedData = deadlineSchema.parse(body);
 
     // Convert string dates to Date objects
-    const dateFields: any = {};
+    const dateFields: {
+      applicationStart?: Date;
+      applicationDeadline?: Date;
+      testDate?: Date;
+      firstMeritList?: Date;
+      secondMeritList?: Date;
+      thirdMeritList?: Date;
+      finalMeritList?: Date;
+    } = {};
+    
     if (validatedData.applicationStart) dateFields.applicationStart = new Date(validatedData.applicationStart);
     if (validatedData.applicationDeadline) dateFields.applicationDeadline = new Date(validatedData.applicationDeadline);
     if (validatedData.testDate) dateFields.testDate = new Date(validatedData.testDate);
@@ -70,9 +80,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
+        { error: 'Validation error', details: error.issues },
         { status: 400 }
       );
     }
@@ -84,4 +94,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,18 +10,45 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GraduationCap, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SignOut } from '@/components/SignOut';
 
 const CITIES = ['Islamabad', 'Karachi', 'Lahore', 'Peshawar', 'Rawalpindi', 'Multan', 'Faisalabad', 'Quetta'];
 const FIELDS = ['Computer Science', 'Engineering', 'Medical', 'Business', 'Arts'];
 const BOARDS = ['Federal', 'Punjab', 'Sindh', 'KPK', 'Balochistan', 'AJK', 'GBSE'];
 
+interface FormData {
+  // Matric
+  matricTotalMarks: number;
+  matricObtainedMarks: number;
+  matricBoard: string;
+  matricYear: number;
+  
+  // Inter
+  interTotalMarks: number;
+  interObtainedMarks: number;
+  interBoard: string;
+  interGroup: string;
+  interYear: number;
+  
+  // Test Scores
+  nustTestScore: number;
+  fastTestScore: number;
+  ntsTestScore: number;
+  
+  // Preferences
+  preferredCities: string[];
+  preferredFields: string[];
+  budgetRange: string;
+}
+
 export default function CreateProfilePage() {
   const router = useRouter();
+	const { isLoaded, isSignedIn } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     // Matric
     matricTotalMarks: 1100,
     matricObtainedMarks: 0,
@@ -40,12 +68,20 @@ export default function CreateProfilePage() {
     ntsTestScore: 0,
     
     // Preferences
-    preferredCities: [] as string[],
-    preferredFields: [] as string[],
+    preferredCities: [],
+    preferredFields: [],
     budgetRange: ''
   });
 
-  const handleChange = (field: string, value: any) => {
+  // Redirect if user is not authenticated or if profile already exists
+	useEffect(() => {
+		if (!isLoaded) return;
+		if (!isSignedIn) {
+			router.push('/sign-in');
+		}
+	}, [isLoaded, isSignedIn, router]);
+
+  const handleChange = (field: keyof FormData, value: string | number | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -92,6 +128,21 @@ export default function CreateProfilePage() {
   const nextStep = () => setStep(prev => Math.min(prev + 1, 4));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
 
+  // Show loading state while auth is loading
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+	// Redirecting via useEffect; render nothing during navigation
+	if (!isSignedIn) return null;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Navigation */}
@@ -99,6 +150,9 @@ export default function CreateProfilePage() {
         <div className="container mx-auto px-4 py-4 flex items-center gap-2">
           <GraduationCap className="h-8 w-8 text-blue-600" />
           <span className="text-2xl font-bold">NUCAP</span>
+          <div className="ml-auto">
+            <SignOut />
+          </div>
         </div>
       </nav>
 
@@ -286,7 +340,7 @@ export default function CreateProfilePage() {
               {step === 3 && (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-600 mb-4">
-                    Enter your expected or actual test scores. Leave blank if you haven't taken the test yet.
+                    Enter your expected or actual test scores. Leave blank if you haven&apos;t taken the test yet.
                   </p>
 
                   <div>
@@ -413,4 +467,3 @@ export default function CreateProfilePage() {
     </div>
   );
 }
-

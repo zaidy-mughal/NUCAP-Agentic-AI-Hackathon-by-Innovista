@@ -1,10 +1,11 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { SignOut } from '@/components/SignOut';
 import { 
   GraduationCap, 
   Calendar, 
@@ -13,7 +14,9 @@ import {
   AlertCircle,
   CheckCircle,
   Database,
-  BarChart3
+  BarChart3,
+  Award,
+  Clock
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -57,6 +60,22 @@ interface NustTestSeries {
   updatedAt: string;
 }
 
+interface MeritList {
+  id: string;
+  year: number;
+  admissionCycle: string;
+  meritType: string;
+  closingMerit: number;
+  publishedDate: Date | null;
+  department: {
+    name: string;
+    degree: string;
+  };
+  university: {
+    shortName: string;
+  };
+}
+
 export default async function DashboardPage() {
   const { userId } = await auth();
 
@@ -65,7 +84,7 @@ export default async function DashboardPage() {
   }
 
   // Fetch user and profile
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { clerkId: userId },
     include: {
       studentProfile: {
@@ -84,8 +103,30 @@ export default async function DashboardPage() {
   });
 
   if (!user) {
-    // Create user if doesn't exist
-    redirect('/profile/create');
+    // Create or update the user safely using Clerk data to avoid unique email conflicts
+    const cu = await currentUser();
+    const emailFromClerk = cu?.primaryEmailAddress?.emailAddress || cu?.emailAddresses?.[0]?.emailAddress || `${userId}@placeholder.local`;
+    const nameFromClerk = cu?.fullName || cu?.username || null;
+
+    await prisma.user.upsert({
+      where: { clerkId: userId! },
+      create: {
+        clerkId: userId!,
+        email: emailFromClerk,
+        name: nameFromClerk,
+        lastLogin: new Date(),
+      },
+      update: {
+        email: emailFromClerk,
+        name: nameFromClerk,
+        lastLogin: new Date(),
+      }
+    });
+
+    user = await prisma.user.findUnique({
+      where: { clerkId: userId! },
+      include: { studentProfile: { include: { matches: { include: { university: true, department: true }, orderBy: { matchScore: 'desc' }, take: 5 } } } }
+    });
   }
 
   const hasProfile = !!user.studentProfile;
@@ -143,6 +184,27 @@ export default async function DashboardPage() {
     }
   });
 
+  // Fetch recently added merit lists
+  const recentMeritLists: MeritList[] = await prisma.meritList.findMany({
+    include: {
+      department: {
+        select: {
+          name: true,
+          degree: true
+        }
+      },
+      university: {
+        select: {
+          shortName: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    },
+    take: 5
+  });
+
   // Fetch NUST test series data
   let nustTestSeries: NustTestSeries[] = [];
   try {
@@ -175,6 +237,7 @@ export default async function DashboardPage() {
             <Link href="/profile">
               <Button variant="ghost">Profile</Button>
             </Link>
+            <SignOut />
           </div>
         </div>
       </nav>
@@ -324,6 +387,52 @@ export default async function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Recently Added Merit Lists */}
+            {recentMeritLists.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="h-5 w-5" />
+                    Recently Added Merit Lists
+                  </CardTitle>
+                  <CardDescription>
+                    Latest merit data added by administrators
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentMeritLists.map((merit) => (
+                      <div key={merit.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-semibold text-gray-900">
+                              {merit.university.shortName} - {merit.department.name}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {merit.department.degree} • {merit.year} {merit.admissionCycle}
+                            </div>
+                          </div>
+                          <Badge variant="secondary">
+                            {merit.meritType} List
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex justify-between items-center">
+                          <div className="text-sm">
+                            <span className="font-medium">Closing Merit:</span> {merit.closingMerit}%
+                          </div>
+                          {merit.publishedDate && (
+                            <div className="text-xs text-gray-500">
+                              Published: {format(new Date(merit.publishedDate), 'MMM d, yyyy')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* NUST Test Series */}
             {nustTestSeries.length > 0 && (
