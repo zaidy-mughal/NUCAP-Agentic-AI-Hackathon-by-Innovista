@@ -33,7 +33,7 @@ export default function HomePage() {
               <Button variant="ghost">Sign In</Button>
             </Link>
             <Link href="/sign-up">
-              <Button>Get Started</Button>
+              <Button variant="ghost">Sign Up</Button>
             </Link>
             <Link href="/admin/login">
               <Button variant="outline">Admin</Button>
@@ -67,9 +67,9 @@ export default function HomePage() {
                 Find Your University
               </Button>
             </Link>
-            <Link href="/universities">
+            <Link href="/sign-in">
               <Button size="lg" variant="outline" className="text-lg px-8">
-                Explore Universities
+                Sign In
               </Button>
             </Link>
           </div>
