@@ -45,6 +45,13 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-20 text-center">
         <div className="max-w-4xl mx-auto">
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/icons/app-icon.png" 
+              alt="NUCAP Logo" 
+              className="h-24 w-24 rounded-full object-contain"
+            />
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
             Never Miss Your
             <span className="text-blue-600"> University Admission </span>
@@ -90,16 +97,16 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              The Problem We're Solving
+              The Problem We&#39;re Solving
             </h2>
             <p className="text-lg text-gray-700 mb-6">
               Every year, thousands of talented students miss university admission deadlines 
               because information is scattered across multiple websites. Merit lists are confusing, 
-              and students don't know which universities match their academic profile.
+              and students don&#39;t know which universities match their academic profile.
             </p>
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <p className="text-xl font-semibold text-red-600">
-                Don't let missed deadlines cost you a year of your life.
+                Don&#39;t let missed deadlines cost you a year of your life.
               </p>
             </div>
           </div>

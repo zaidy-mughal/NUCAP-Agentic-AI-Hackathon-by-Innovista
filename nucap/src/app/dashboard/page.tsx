@@ -197,7 +197,11 @@ export default async function DashboardPage() {
       <nav className="border-b bg-white">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <GraduationCap className="h-8 w-8 text-blue-600" />
+            <img 
+              src="/icons/app-icon.png" 
+              alt="NUCAP Logo" 
+              className="h-8 w-8 rounded-full object-contain"
+            />
             <span className="text-2xl font-bold">NUCAP</span>
           </div>
           <div className="flex gap-4 items-center">
