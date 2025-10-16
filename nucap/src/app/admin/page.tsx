@@ -1,45 +1,103 @@
-import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 import { 
   Users, 
   GraduationCap, 
+  Activity, 
   TrendingUp, 
-  Activity,
-  RefreshCw,
+  RefreshCw, 
+  CheckCircle, 
   AlertCircle,
-  CheckCircle
+  PlusCircle
 } from 'lucide-react';
-import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
+
+// Define types for our data
+interface ScrapingLog {
+  id: string;
+  status: string;
+  dataType: string;
+  errorMessage: string | null;
+  executionTime: number | null;
+  completedAt: Date;
+  university: {
+    shortName: string;
+  } | null;
+}
+
+interface DashboardData {
+  totalStudents: number;
+  totalUniversities: number;
+  totalDepartments: number;
+  totalMatches: number;
+  recentLogs: ScrapingLog[];
+  error?: string;
+}
+
+// Fetch dashboard data with error handling
+async function getDashboardData(): Promise<DashboardData> {
+  try {
+    // Test database connection first
+    await prisma.$queryRaw`SELECT 1`;
+    
+    const [
+      totalStudents,
+      totalUniversities,
+      totalDepartments,
+      totalMatches,
+      recentLogs
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.university.count({ where: { isActive: true } }),
+      prisma.department.count(),
+      prisma.studentMatch.count(),
+      prisma.scrapingLog.findMany({
+        include: { university: true },
+        orderBy: { completedAt: 'desc' },
+        take: 10
+      })
+    ]);
+
+    return {
+      totalStudents,
+      totalUniversities,
+      totalDepartments,
+      totalMatches,
+      recentLogs
+    };
+  } catch (error) {
+    console.error('Database error in admin dashboard:', error);
+    return {
+      totalStudents: 0,
+      totalUniversities: 0,
+      totalDepartments: 0,
+      totalMatches: 0,
+      recentLogs: [],
+      error: 'Unable to connect to database. Please check your connection.'
+    };
+  }
+}
 
 export default async function AdminPage() {
-  // Check admin authentication
-  const isAuthenticated = await isAdminAuthenticated();
-  if (!isAuthenticated) {
-    redirect('/admin/login');
+  const { userId } = await auth();
+  
+  if (!userId) {
+    redirect('/sign-in');
   }
 
-  // Fetch statistics
-  const [
-    totalStudents,
-    totalUniversities,
-    totalDepartments,
-    totalMatches,
-    recentLogs
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.university.count({ where: { isActive: true } }),
-    prisma.department.count(),
-    prisma.studentMatch.count(),
-    prisma.scrapingLog.findMany({
-      include: { university: true },
-      orderBy: { completedAt: 'desc' },
-      take: 10
-    })
-  ]);
+  const dashboardData = await getDashboardData();
+  const { 
+    totalStudents, 
+    totalUniversities, 
+    totalDepartments, 
+    totalMatches, 
+    recentLogs, 
+    error 
+  } = dashboardData;
 
   const successfulScrapes = recentLogs.filter(log => log.status === 'success').length;
   const failedScrapes = recentLogs.filter(log => log.status === 'failed').length;
@@ -76,6 +134,14 @@ export default async function AdminPage() {
             Manage universities, scraping, and monitor system health
           </p>
         </div>
+
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">
+            <h3 className="font-bold">Database Connection Error</h3>
+            <p>{error}</p>
+            <p className="mt-2 text-sm">The application is currently unable to connect to the database. Some features may be limited.</p>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -162,43 +228,54 @@ export default async function AdminPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {recentLogs.map((log) => (
-                    <div 
-                      key={log.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        {log.status === 'success' ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <AlertCircle className="h-5 w-5 text-red-600" />
-                        )}
-                        <div>
-                          <div className="font-semibold text-sm">
-                            {log.university.shortName}
+                  {recentLogs.length > 0 ? (
+                    recentLogs.map((log) => (
+                      <div 
+                        key={log.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          {log.status === 'success' ? (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-red-600" />
+                          )}
+                          <div>
+                            <div className="font-semibold text-sm">
+                              {log.university?.shortName || 'Unknown University'}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {log.dataType} • <time
+                                suppressHydrationWarning
+                                dateTime={new Date(log.completedAt).toISOString()}
+                              >
+                                {new Date(log.completedAt).toISOString().replace('T', ' ').slice(0, 16)}
+                              </time>
+                            </div>
+                            {log.errorMessage && (
+                              <div className="text-xs text-red-600 mt-1">
+                                {log.errorMessage}
+                              </div>
+                            )}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {log.dataType} • {new Date(log.completedAt).toLocaleString()}
-                          </div>
-                          {log.errorMessage && (
-                            <div className="text-xs text-red-600 mt-1">
-                              {log.errorMessage}
+                        </div>
+                        <div className="text-right">
+                          <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>
+                            {log.status}
+                          </Badge>
+                          {log.executionTime && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {log.executionTime}ms
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>
-                          {log.status}
-                        </Badge>
-                        {log.executionTime && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            {log.executionTime}ms
-                          </div>
-                        )}
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      No scraping activity found
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -217,42 +294,47 @@ export default async function AdminPage() {
                     Add University
                   </Button>
                 </Link>
+                <Link href="/admin/universities">
+                  <Button variant="outline" className="w-full justify-start">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Add Department
+                  </Button>
+                </Link>
                 <Link href="/admin/merit">
                   <Button variant="outline" className="w-full justify-start">
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Add Merit List
+                    Manage Merit Lists
                   </Button>
                 </Link>
                 <Link href="/admin/timeline">
                   <Button variant="outline" className="w-full justify-start">
                     <Activity className="h-4 w-4 mr-2" />
-                    Update Timeline
+                    Admission Timelines
                   </Button>
                 </Link>
               </CardContent>
             </Card>
 
+            {/* System Status */}
             <Card>
               <CardHeader>
-                <CardTitle>Scraping Stats</CardTitle>
+                <CardTitle>System Status</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Successful</span>
-                    <span className="font-semibold text-green-600">{successfulScrapes}</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Database</span>
+                    <Badge variant={error ? "destructive" : "default"}>
+                      {error ? "Disconnected" : "Connected"}
+                    </Badge>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Failed</span>
-                    <span className="font-semibold text-red-600">{failedScrapes}</span>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Scraping Success</span>
+                    <span className="text-sm font-medium">{successfulScrapes}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Success Rate</span>
-                    <span className="font-semibold">
-                      {recentLogs.length > 0 
-                        ? Math.round((successfulScrapes / recentLogs.length) * 100)
-                        : 0}%
-                    </span>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Scraping Failed</span>
+                    <span className="text-sm font-medium">{failedScrapes}</span>
                   </div>
                 </div>
               </CardContent>
