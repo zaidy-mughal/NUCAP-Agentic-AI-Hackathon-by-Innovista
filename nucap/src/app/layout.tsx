@@ -19,7 +19,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        elements: {
+          // Hide the floating button that appears on pages
+          impersonationFab: { display: "none" },
+          // Also hide any other floating elements
+          userButtonPopoverMain: { display: "none" },
+        }
+      }}
+    >
       <html lang="en" suppressHydrationWarning>
         <body className={inter.className} suppressHydrationWarning>{children}</body>
       </html>
