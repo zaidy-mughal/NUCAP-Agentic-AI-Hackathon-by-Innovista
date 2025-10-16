@@ -599,4 +599,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 [⬆ Back to Top](#-nucap---national-university-admission-platform)
 
+Thank You!
+
 </div>
